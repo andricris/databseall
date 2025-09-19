@@ -1,72 +1,72 @@
 <!doctype html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <title>Database Excel</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"/>
+  <title>Database Excel Repo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; }
-    input { margin-bottom: 1rem; padding: .5rem; width: 100%; max-width: 400px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: .5rem; text-align: left; }
-    th { background: #f2f2f2; cursor: pointer; }
+    body{font-family:Arial,Helvetica,sans-serif;margin:2rem;background:#f7f7f7}
+    h1{color:#333}
+    ul{list-style:none;padding:0}
+    li{background:#fff;margin:.5rem 0;padding:.75rem 1rem;border-radius:4px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+    a{text-decoration:none;color:#0066cc;font-weight:bold}
+    a:hover{text-decoration:underline}
+    .size{color:#666;font-size:.85rem}
+    .loading,.error{color:#666}
+    .error{color:#c00}
   </style>
 </head>
 <body>
 
-  <h1>Database Excel</h1>
-  <input id="searchBox" type="text" placeholder="Cari data…" />
-  <table id="dataTable">
-    <thead id="tableHead"></thead>
-    <tbody id="tableBody"></tbody>
-  </table>
-
-  <!-- SheetJS CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <h1>Daftar File Excel di Repository</h1>
+  <p id="stat" class="loading">Memuat daftar file…</p>
+  <ul id="list"></ul>
 
   <script>
-    const EXCEL_URL = 'https://raw.githubusercontent.com/andricris/databseall/main/data.xlsx';
+    const USER  = 'andricris';
+    const REPO  = 'databseall';
+    const API   = `https://api.github.com/repos/${USER}/${REPO}/contents`;
 
-    fetch(EXCEL_URL)
-      .then(res => res.arrayBuffer())
-      .then(ab => {
-        const wb = XLSX.read(ab, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws, { header: 1 }); // array of arrays
-        renderTable(data);
-      })
-      .catch(err => {
-        document.body.innerHTML = '<p>Gagal memuat file Excel. Pastikan file <b>data.xlsx</b> sudah di-upload ke repo.</p>';
-        console.error(err);
-      });
+    fetch(API)
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(files => {
+        const excel = files.filter(f =>
+          f.type==='file' &&
+          /\.xlsx?$/i.test(f.name)
+        );
+        const list = document.getElementById('list');
+        const stat = document.getElementById('stat');
 
-    function renderTable(data) {
-      if (!data.length) return;
-      const head = data[0];
-      const rows = data.slice(1);
+        if (!excel.length) {
+          stat.textContent = 'Belum ada file Excel di repo ini.';
+          stat.className = 'error';
+          return;
+        }
 
-      // header
-      const headRow = head.map(h => `<th>${h}</th>`).join('');
-      document.getElementById('tableHead').innerHTML = `<tr>${headRow}</tr>`;
+        stat.style.display = 'none';
+        excel.forEach(f => {
+          const li = document.createElement('li');
+          const dn = document.createElement('a');
+          dn.href = f.download_url;
+          dn.textContent = f.name;
+          dn.download = f.name;
 
-      // body
-      const bodyHtml = rows.map(r => {
-        const cells = r.map(c => `<td>${c ?? ''}</td>`).join('');
-        return `<tr>${cells}</tr>`;
-      }).join('');
-      document.getElementById('tableBody').innerHTML = bodyHtml;
+          const sz = document.createElement('span');
+          sz.className = 'size';
+          sz.textContent = formatBytes(f.size);
 
-      // search
-      document.getElementById('searchBox').addEventListener('input', e => {
-        const kw = e.target.value.toLowerCase();
-        [...document.getElementById('tableBody').rows].forEach(row => {
-          const match = [...row.cells].some(cell =>
-            cell.textContent.toLowerCase().includes(kw)
-          );
-          row.style.display = match ? '' : 'none';
+          li.appendChild(dn);
+          li.appendChild(sz);
+          list.appendChild(li);
         });
+      })
+      .catch(() => {
+        document.getElementById('stat').textContent =
+          'Gagal memuat daftar file; coba refresh atau periksa nama repo.';
+        document.getElementById('stat').className = 'error';
       });
-    }
+
+    function formatBytes(b){return b<1024?b+' B':(b/1024).toFixed(1)+' KB'}
   </script>
 
 </body>
